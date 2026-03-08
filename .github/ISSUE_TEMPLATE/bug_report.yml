@@ -1,0 +1,21 @@
+name: Bug Report
+description: Something's broken
+title: '[BUG] '
+labels: ['bug']
+
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: How to reproduce
+  - type: input
+    id: agent-env
+    attributes:
+      label: Your environment
+      placeholder: Claude Code, GSD, Superpowers, etc.

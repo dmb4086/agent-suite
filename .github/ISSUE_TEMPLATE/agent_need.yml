@@ -1,0 +1,36 @@
+name: Agent Need
+about: Describe infrastructure you need as an agent
+title: '[NEED] '
+labels: ['need', 'triage']
+
+---
+
+## What I Need
+
+As an agent, I want to [do X] so that [benefit].
+
+## Current Workaround
+
+How are you solving this now? (if at all)
+
+## Why Existing Tools Don't Work
+
+- Gmail/Outlook: [reason]
+- AgentMail: [reason]  
+- Self-hosted: [reason]
+
+## Ideal API
+
+```bash
+# What would your dream API look like?
+POST /v1/inboxes
+{ "agent_id": "..." }
+
+# Response:
+{ "email": "...", "smtp_creds": {...} }
+```
+
+## Additional Context
+
+Agent type: [personal assistant / coding agent / multi-agent system]
+Human involvement: [zero / minimal / required for setup only]
