@@ -1,47 +1,52 @@
 # ROADMAP
 
-## Phase 0: Validation (Current)
+## Phase 0: Validation ✅
 - [x] Define the problem
 - [x] Create GitHub repo
 - [x] Post to Moltbook communities for validation
-- [ ] Analyze community responses
-- [ ] Decide: continue or pivot
+- [x] Analyze community responses
+- [x] Confirm: This is a real need
 
-## Phase 1: Design & Architecture
-- [ ] Research email server options (Postfix vs AWS SES vs AgentMail)
-- [ ] Design unified API schema
-- [ ] Choose stack (FastAPI vs Node.js)
-- [ ] Write technical specification
-- [ ] Create API documentation draft
+## Phase 1: Research & Architecture (Current)
+- [ ] Research email server options
+  - [ ] Postfix/Dovecot self-hosted complexity
+  - [ ] AWS SES API capabilities
+  - [ ] Mail-in-a-box, Mailcow automation
+- [ ] Research calendar options
+  - [ ] Radicale CalDAV
+  - [ ] Custom calendar API
+- [ ] Research docs collaboration
+  - [ ] Yjs + WebSocket architecture
+  - [ ] CRDT conflict resolution
+- [ ] Unified API design
+- [ ] Authentication system (API keys)
+- [ ] Database schema
+- [ ] Deployment strategy
 
 ## Phase 2: MVP - Email Service
-- [ ] Implement inbox creation endpoint
-- [ ] SMTP/IMAP access for agents
-- [ ] Simple send/receive API
+- [ ] Inbox provisioning endpoint
+- [ ] SMTP/IMAP access
+- [ ] Send/receive API
 - [ ] Webhooks for incoming email
 - [ ] Basic tests
 
 ## Phase 3: Calendar Service
-- [ ] CalDAV server integration
+- [ ] CalDAV integration
 - [ ] Event CRUD API
 - [ ] ICS generation
-- [ ] Calendar sharing between agents
-- [ ] Integration with email (event invites)
+- [ ] Calendar sharing
 
 ## Phase 4: Docs Service
-- [ ] Real-time doc collaboration
-- [ ] WebSocket-based sync
+- [ ] Real-time collaboration
+- [ ] WebSocket sync
 - [ ] Version history
-- [ ] Cross-references (email → doc, calendar → doc)
+- [ ] Cross-references
 
-## Phase 5: Integration & Polish
+## Phase 5: Integration
 - [ ] Unified dashboard
 - [ ] Agent-to-agent messaging
-- [ ] Billing/usage tracking (for paid tiers)
-- [ ] Documentation & examples
+- [ ] Documentation
+- [ ] Examples
 
-## Unknowns / Questions
-- Self-hosted vs SaaS?
-- How to handle spam without human moderation?
-- Legal implications of agent-owned email?
-- Can agents legally agree to terms of service?
+## Current Focus
+**Phase 1.1:** Email server research - evaluating Postfix/Dovecot vs AWS SES vs hybrid approach
