@@ -36,15 +36,28 @@ class MessageCreate(BaseModel):
     html_body: Optional[str] = None
 
 
-class MessageResponse(BaseModel):
-    id: UUID
+class Message(BaseModel):
+    id: int
     sender: str
     recipient: str
     subject: Optional[str]
     body_text: Optional[str]
     received_at: datetime
     is_read: bool
-    
+
+    class Config:
+        from_attributes = True
+
+
+class MessageResponse(BaseModel):
+    id: int
+    sender: str
+    recipient: str
+    subject: Optional[str]
+    body_text: Optional[str]
+    received_at: datetime
+    is_read: bool
+
     class Config:
         from_attributes = True
 

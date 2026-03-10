@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 import boto3
@@ -16,6 +18,28 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Agent Suite", version="0.1.0")
 security = HTTPBearer()
 settings = get_settings()
+
+# Mount static files
+import os
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+@app.get("/")
+async def root():
+    """Serve inbox UI at root"""
+    inbox_path = os.path.join(static_dir, "inbox.html")
+    if os.path.exists(inbox_path):
+        return FileResponse(inbox_path)
+    return {"message": "Agent Suite API", "docs": "/docs", "inbox": "/inbox"}
+
+@app.get("/inbox")
+async def inbox():
+    """Serve inbox UI"""
+    inbox_path = os.path.join(static_dir, "inbox.html")
+    if os.path.exists(inbox_path):
+        return FileResponse(inbox_path)
+    raise HTTPException(status_code=404, detail="Inbox UI not found")
 
 
 def get_inbox_by_api_key(api_key: str, db: Session):
@@ -131,14 +155,37 @@ def list_messages(
 ):
     """List received messages for this inbox."""
     query = db.query(models.Message).filter(models.Message.inbox_id == inbox.id)
-    
+
     if unread_only:
         query = query.filter(models.Message.is_read == False)
-    
+
     total = query.count()
     messages = query.order_by(models.Message.received_at.desc()).offset(skip).limit(limit).all()
-    
+
     return schemas.MessageList(total=total, messages=messages)
+
+
+@app.get("/v1/inboxes/me/messages/{message_id}", response_model=schemas.Message)
+def get_message(
+    message_id: int,
+    inbox: models.Inbox = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Get a single message by ID."""
+    message = db.query(models.Message).filter(
+        models.Message.id == message_id,
+        models.Message.inbox_id == inbox.id
+    ).first()
+
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Mark as read
+    if not message.is_read:
+        message.is_read = True
+        db.commit()
+
+    return message
 
 
 @app.post("/v1/webhooks/mailgun")
