@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: Agent Suite API
+  version: 1.0.0
+  description: API for managing agent inboxes, sending emails, and handling webhooks.
+servers:
+  - url: https://api.agent-suite.com/v1
+paths:
+  /inboxes:
+    post:
+      summary: Create Inbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInboxRequest'
+      responses:
+        '201':
+          description: Inbox created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+  /emails:
+    post:
+      summary: Send Email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '200':
+          description: Email sent successfully
+  /messages:
+    get:
+      summary: List Messages
+      parameters:
+        - name: inbox_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+  /webhooks:
+    post:
+      summary: Receive Webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        '200':
+          description: Webhook received successfully
+components:
+  schemas:
+    CreateInboxRequest:
+      type: object
+      properties:
+        name:
+          type: string
+    Inbox:
+      type: object
+      properties:
+        id:
+          type: string
+        address:
+          type: string
+    SendEmailRequest:
+      type: object
+      properties:
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        subject:
+          type: string
+        content:
+          type: string
+    WebhookPayload:
+      type: object
+      properties:
+        event_type:
+          type: string
+        data:
+          type: object
