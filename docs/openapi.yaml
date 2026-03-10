@@ -1,0 +1,328 @@
+openapi: 3.0.0
+info:
+  title: AgentWork Infrastructure API
+  version: 1.0.0
+  description: Email, calendar, and docs APIs for AI agents
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /v1/inboxes:
+    post:
+      summary: Create a new inbox
+      description: Creates a new email inbox and returns the email address and API key
+      operationId: createInbox
+      responses:
+        '201':
+          description: Inbox created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+      tags:
+        - Inbox
+
+  /v1/inboxes/me/messages:
+    get:
+      summary: List all messages
+      description: Retrieve all messages in the authenticated inbox
+      operationId: listMessages
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+      tags:
+        - Messages
+
+    post:
+      summary: Send an email
+      description: Send an email from the authenticated inbox
+      operationId: sendEmail
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailResponse'
+      tags:
+        - Messages
+
+  /v1/inboxes/me/messages/{messageId}:
+    get:
+      summary: Get a message
+      description: Retrieve a specific message by ID
+      operationId: getMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          description: Message not found
+      tags:
+        - Messages
+
+    delete:
+      summary: Delete a message
+      description: Delete a specific message
+      operationId: deleteMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Message deleted successfully
+        '404':
+          description: Message not found
+      tags:
+        - Messages
+
+  /v1/inboxes/me/events:
+    get:
+      summary: List calendar events
+      description: Retrieve all calendar events
+      operationId: listEvents
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+      tags:
+        - Calendar
+
+    post:
+      summary: Create calendar event
+      description: Create a new calendar event
+      operationId: createEvent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+      tags:
+        - Calendar
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+
+  schemas:
+    Inbox:
+      type: object
+      required:
+        - email_address
+        - api_key
+        - created_at
+      properties:
+        email_address:
+          type: string
+          format: email
+          example: abc123@mail.example.com
+        api_key:
+          type: string
+          example: sk_live_abc123xyz
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-10T14:00:00Z"
+
+    Message:
+      type: object
+      required:
+        - id
+        - from_email
+        - to_email
+        - subject
+        - body
+        - created_at
+      properties:
+        id:
+          type: string
+          example: msg_abc123
+        from_email:
+          type: string
+          format: email
+          example: sender@example.com
+        to_email:
+          type: string
+          format: email
+          example: abc123@mail.example.com
+        subject:
+          type: string
+          example: Hello World
+        body:
+          type: string
+          example: This is the email body
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-10T14:00:00Z"
+        read:
+          type: boolean
+          default: false
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+
+    Attachment:
+      type: object
+      properties:
+        filename:
+          type: string
+          example: document.pdf
+        content_type:
+          type: string
+          example: application/pdf
+        size:
+          type: integer
+          example: 102400
+        s3_url:
+          type: string
+          format: uri
+          example: https://bucket.s3.amazonaws.com/attachments/document.pdf
+
+    SendEmailRequest:
+      type: object
+      required:
+        - to
+        - subject
+        - body
+      properties:
+        to:
+          type: string
+          format: email
+          example: recipient@example.com
+        subject:
+          type: string
+          example: Test Email
+        body:
+          type: string
+          example: This is a test email body
+
+    SendEmailResponse:
+      type: object
+      properties:
+        message_id:
+          type: string
+          example: msg_xyz789
+        status:
+          type: string
+          enum: [sent, queued, failed]
+          example: sent
+
+    Event:
+      type: object
+      required:
+        - id
+        - title
+        - start_time
+        - end_time
+      properties:
+        id:
+          type: string
+          example: event_abc123
+        title:
+          type: string
+          example: Team Meeting
+        description:
+          type: string
+          example: Weekly team standup
+        start_time:
+          type: string
+          format: date-time
+          example: "2026-03-10T14:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          example: "2026-03-10T15:00:00Z"
+
+    CreateEventRequest:
+      type: object
+      required:
+        - title
+        - start_time
+        - end_time
+      properties:
+        title:
+          type: string
+          example: Team Meeting
+        description:
+          type: string
+          example: Weekly team standup
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Resource not found
+        code:
+          type: string
+          example: NOT_FOUND
+
+tags:
+  - name: Inbox
+    description: Inbox management operations
+  - name: Messages
+    description: Email message operations
+  - name: Calendar
+    description: Calendar event operations
