@@ -1,3 +1,4 @@
+import io
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -6,7 +7,6 @@ from sqlalchemy.orm import sessionmaker
 from app.main import app, get_db
 from app.db.database import Base
 
-# Test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -48,11 +48,9 @@ def test_create_inbox(setup_db):
 
 
 def test_get_my_inbox(setup_db):
-    # Create inbox
     create_resp = client.post("/v1/inboxes")
     api_key = create_resp.json()["api_key"]
-    
-    # Get inbox with API key
+
     response = client.get(
         "/v1/inboxes/me",
         headers={"Authorization": f"Bearer {api_key}"}
@@ -71,12 +69,10 @@ def test_invalid_api_key(setup_db):
 
 
 def test_list_messages(setup_db):
-    # Create inbox
     create_resp = client.post("/v1/inboxes")
     api_key = create_resp.json()["api_key"]
     email = create_resp.json()["email_address"]
-    
-    # Simulate incoming message via webhook
+
     client.post(
         "/v1/webhooks/mailgun",
         data={
@@ -84,11 +80,13 @@ def test_list_messages(setup_db):
             "recipient": email,
             "subject": "Test Subject",
             "body_plain": "Test body",
-            "message_id": "test123"
+            "message_id": "test123",
+            "dkim": "pass",
+            "SPF": "pass",
+            "spam_score": "1.5",
         }
     )
-    
-    # List messages
+
     response = client.get(
         "/v1/inboxes/me/messages",
         headers={"Authorization": f"Bearer {api_key}"}
@@ -97,3 +95,61 @@ def test_list_messages(setup_db):
     data = response.json()
     assert data["total"] == 1
     assert data["messages"][0]["subject"] == "Test Subject"
+    assert data["messages"][0]["dkim_passed"] is True
+    assert data["messages"][0]["spf_passed"] is True
+    assert data["messages"][0]["spam_score"] == "1.5"
+
+
+def test_reject_spam_message(setup_db):
+    create_resp = client.post("/v1/inboxes")
+    email = create_resp.json()["email_address"]
+
+    response = client.post(
+        "/v1/webhooks/mailgun",
+        data={
+            "sender": "spam@example.com",
+            "recipient": email,
+            "subject": "Spam",
+            "body_plain": "Buy now",
+            "message_id": "spam123",
+            "spam_score": "8.4",
+        }
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+    assert response.json()["reason"] == "spam"
+
+
+def test_attachment_metadata_is_returned(setup_db):
+    create_resp = client.post("/v1/inboxes")
+    api_key = create_resp.json()["api_key"]
+    email = create_resp.json()["email_address"]
+
+    response = client.post(
+        "/v1/webhooks/mailgun",
+        data={
+            "sender": "files@example.com",
+            "recipient": email,
+            "subject": "Files",
+            "body_plain": "See attachment",
+            "message_id": "file123",
+            "dkim": "pass",
+            "SPF": "pass",
+            "spam_score": "0.2",
+        },
+        files={
+            "attachment_1": ("hello.txt", io.BytesIO(b"hello world"), "text/plain"),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "received"
+    assert response.json()["attachments"][0]["filename"] == "hello.txt"
+
+    response = client.get(
+        "/v1/inboxes/me/messages",
+        headers={"Authorization": f"Bearer {api_key}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["messages"][0]["attachments_meta"] is not None
+    assert "hello.txt" in data["messages"][0]["attachments_meta"]
