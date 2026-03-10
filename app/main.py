@@ -1,21 +1,37 @@
+"""
+Agent Suite - Email infrastructure for AI agents.
+Implements automated email verification as per Bounty #2.
+"""
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
 import boto3
 from botocore.exceptions import ClientError
+import logging
 
 from app.core.config import get_settings
 from app.db.database import get_db, engine, Base
 from app.models import models
 from app.schemas import schemas
+from app.services.email_verification import EmailVerificationService
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Agent Suite", version="0.1.0")
+app = FastAPI(title="Agent Suite", version="0.2.0")
 security = HTTPBearer()
 settings = get_settings()
+
+# Initialize verification service
+verification_service = EmailVerificationService(
+    s3_bucket=getattr(settings, 's3_attachments_bucket', None),
+    aws_region=settings.aws_region
+)
 
 
 def get_inbox_by_api_key(api_key: str, db: Session):
@@ -37,7 +53,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "agent-suite"}
+    return {"status": "ok", "service": "agent-suite", "version": "0.2.0"}
 
 
 @app.post("/v1/inboxes", response_model=schemas.InboxResponse, status_code=status.HTTP_201_CREATED)
@@ -149,9 +165,22 @@ def mailgun_webhook(
     body_plain: str = "",
     body_html: str = "",
     message_id: str = "",
+    raw_email: str = "",
+    # Additional headers (Mailgun sends these)
+    x_mailgun_spf: str = "",
+    x_mailgun_dkim: str = "",
+    authentication_results: str = "",
     db: Session = Depends(get_db)
 ):
-    """Receive incoming email from Mailgun."""
+    """
+    Receive incoming email from Mailgun with automated verification.
+    
+    Implements Bounty #2:
+    - SPF/DKIM signature verification
+    - Spam score filtering (reject if score > 5)
+    - Attachment parsing and S3 storage
+    - Update /v1/inboxes/me/messages to include attachment metadata
+    """
     # Find inbox by recipient email
     inbox = db.query(models.Inbox).filter(
         models.Inbox.email_address == recipient,
@@ -162,7 +191,32 @@ def mailgun_webhook(
         # Silently drop - inbox doesn't exist or inactive
         return {"status": "dropped"}
     
-    # Store message
+    # Perform email verification
+    headers = {
+        'Received-SPF': x_mailgun_spf,
+        'X-Mailgun-Spf': x_mailgun_spf,
+        'X-Mailgun-Dkim': x_mailgun_dkim,
+        'Authentication-Results': authentication_results
+    }
+    
+    verification_result = verification_service.verify_email(
+        sender=sender,
+        recipient=recipient,
+        subject=subject,
+        body_plain=body_plain,
+        body_html=body_html,
+        raw_email=raw_email,
+        headers=headers
+    )
+    
+    # Check if we should reject the email (spam score > 5)
+    if verification_service.should_reject_email(verification_result):
+        logger.warning(
+            f"Rejecting spam email from {sender}: spam_score={verification_result.spam_score}"
+        )
+        return {"status": "rejected", "reason": "spam", "score": verification_result.spam_score}
+    
+    # Store message with verification metadata
     message = models.Message(
         inbox_id=inbox.id,
         sender=sender,
@@ -170,11 +224,45 @@ def mailgun_webhook(
         subject=subject,
         body_text=body_plain,
         body_html=body_html,
-        message_id=message_id
+        message_id=message_id,
+        raw_data=raw_email,
+        spf_pass=verification_result.spf_pass,
+        dkim_pass=verification_result.dkim_pass,
+        spam_score=verification_result.spam_score,
+        is_spam=verification_result.is_spam,
+        spam_indicators=verification_result.spam_indicators
     )
     db.add(message)
     db.commit()
+    db.refresh(message)
     
-    # TODO: Trigger user webhook if configured
+    # Store attachments
+    for attachment_data in verification_result.attachments:
+        attachment = models.Attachment(
+            message_id=message.id,
+            filename=attachment_data['filename'],
+            content_type=attachment_data['content_type'],
+            size_bytes=attachment_data['size_bytes'],
+            sha256=attachment_data['sha256'],
+            s3_key=attachment_data.get('s3_key')
+        )
+        db.add(attachment)
     
-    return {"status": "received", "message_id": str(message.id)}
+    db.commit()
+    
+    logger.info(
+        f"Email received: from={sender}, spf={verification_result.spf_pass}, "
+        f"dkim={verification_result.dkim_pass}, spam_score={verification_result.spam_score:.1f}, "
+        f"attachments={len(verification_result.attachments)}"
+    )
+    
+    return {
+        "status": "received",
+        "message_id": str(message.id),
+        "verification": {
+            "spf_pass": verification_result.spf_pass,
+            "dkim_pass": verification_result.dkim_pass,
+            "spam_score": verification_result.spam_score
+        },
+        "attachments_count": len(verification_result.attachments)
+    }
