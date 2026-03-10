@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: Agent Suite API
+  version: 0.1.0
+  description: |
+    Infrastructure for agents, by agents. No human OAuth required.
+
+    Agent Suite provides a REST API that enables AI agents to provision and manage
+    email services programmatically — without OAuth flows or browser sessions.
+
+    ## Authentication
+
+    Most endpoints require a Bearer token (API key) in the `Authorization` header.
+    API keys are generated when creating an inbox via `POST /v1/inboxes` and follow
+    the format `as_{hex}`.
+
+    ```
+    Authorization: Bearer as_abc123def456...
+    ```
+
+    ## Rate Limits
+
+    Currently no rate limits are enforced. This may change in future versions.
+  contact:
+    name: Agent Suite
+    url: https://github.com/dmb4086/agent-suite
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.agents.dev
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key obtained from POST /v1/inboxes (format `as_{hex}`)
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: agent-suite
+
+    InboxResponse:
+      type: object
+      description: Full inbox details including API key (only returned on creation).
+      required:
+        - id
+        - email_address
+        - api_key
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email_address:
+          type: string
+          format: email
+          example: "abc123def456@agents.dev"
+        api_key:
+          type: string
+          example: "as_a1b2c3d4e5f6..."
+          description: Store this securely. It is only returned once on creation.
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-09T12:00:00Z"
+
+    InboxPublic:
+      type: object
+      description: Public inbox details (no API key).
+      required:
+        - id
+        - email_address
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email_address:
+          type: string
+          format: email
+          example: "abc123def456@agents.dev"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-09T12:00:00Z"
+
+    MessageCreate:
+      type: object
+      description: Email message to send.
+      required:
+        - to
+        - subject
+        - body
+      properties:
+        to:
+          type: string
+          format: email
+          description: Recipient email address.
+          example: "recipient@example.com"
+        subject:
+          type: string
+          description: Email subject line.
+          example: "Hello from Agent"
+        body:
+          type: string
+          description: Plain text email body.
+          example: "This was sent programmatically."
+        html_body:
+          type: string
+          nullable: true
+          description: Optional HTML email body.
+          example: "<p>This was sent <b>programmatically</b>.</p>"
+
+    SendResponse:
+      type: object
+      required:
+        - status
+        - message_id
+        - to
+      properties:
+        status:
+          type: string
+          enum: [sent]
+          example: sent
+        message_id:
+          type: string
+          description: AWS SES message ID.
+          example: "0102018f-1234-5678-abcd-0123456789ab"
+        to:
+          type: string
+          format: email
+          example: "recipient@example.com"
+
+    MessageResponse:
+      type: object
+      required:
+        - id
+        - sender
+        - recipient
+        - subject
+        - body_text
+        - received_at
+        - is_read
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440000"
+        sender:
+          type: string
+          format: email
+          example: "sender@example.com"
+        recipient:
+          type: string
+          format: email
+          example: "abc123def456@agents.dev"
+        subject:
+          type: string
+          nullable: true
+          example: "Hello"
+        body_text:
+          type: string
+          nullable: true
+          example: "Message body text"
+        received_at:
+          type: string
+          format: date-time
+          example: "2026-03-09T12:30:00Z"
+        is_read:
+          type: boolean
+          example: false
+
+    MessageList:
+      type: object
+      required:
+        - total
+        - messages
+      properties:
+        total:
+          type: integer
+          description: Total number of messages matching the query.
+          example: 42
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageResponse"
+
+    WebhookReceiveResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [received, dropped]
+          example: received
+        message_id:
+          type: string
+          format: uuid
+          description: Only present when status is "received".
+          example: "770e8400-e29b-41d4-a716-446655440000"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error description.
+          example: "Invalid API key"
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      description: Returns the service health status. No authentication required.
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/inboxes:
+    post:
+      operationId: createInbox
+      summary: Create a new inbox
+      description: |
+        Provisions a new inbox with a unique email address and API key.
+        The email address is auto-generated in the format `{unique_id}@agents.dev`.
+        The API key is returned **only once** — store it securely.
+      tags:
+        - Inboxes
+      responses:
+        "201":
+          description: Inbox created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxResponse"
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email_address: "a1b2c3d4e5f6@agents.dev"
+                api_key: "as_a1b2c3d4e5f6789012345678901234"
+                created_at: "2026-03-09T12:00:00Z"
+
+  /v1/inboxes/me:
+    get:
+      operationId: getMyInbox
+      summary: Get current inbox details
+      description: Returns the inbox associated with the authenticated API key.
+      tags:
+        - Inboxes
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Inbox details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxPublic"
+        "401":
+          description: Invalid or missing API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Invalid API key"
+
+  /v1/inboxes/me/send:
+    post:
+      operationId: sendEmail
+      summary: Send an email
+      description: |
+        Sends an email via AWS SES on behalf of the authenticated inbox.
+        Requires AWS SES to be configured on the server.
+      tags:
+        - Messages
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageCreate"
+            example:
+              to: "recipient@example.com"
+              subject: "Hello from Agent"
+              body: "This was sent programmatically."
+      responses:
+        "200":
+          description: Email sent successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendResponse"
+        "401":
+          description: Invalid or missing API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AWS SES not configured on the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "AWS SES not configured"
+        "500":
+          description: SES delivery error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "SES error: ..."
+
+  /v1/inboxes/me/messages:
+    get:
+      operationId: listMessages
+      summary: List received messages
+      description: |
+        Returns messages for the authenticated inbox, ordered by received date
+        (newest first). Supports pagination and filtering by read status.
+      tags:
+        - Messages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          description: Number of messages to skip (for pagination).
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of messages to return.
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: unread_only
+          in: query
+          required: false
+          description: If true, return only unread messages.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Paginated list of messages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageList"
+        "401":
+          description: Invalid or missing API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/webhooks/mailgun:
+    post:
+      operationId: receiveWebhook
+      summary: Receive incoming email via Mailgun
+      description: |
+        Webhook endpoint for Mailgun to deliver incoming emails.
+        Mailgun sends form-encoded POST requests when emails are received.
+        If the recipient inbox does not exist or is inactive, the message
+        is silently dropped.
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - sender
+                - recipient
+              properties:
+                sender:
+                  type: string
+                  format: email
+                  description: Email address of the sender.
+                recipient:
+                  type: string
+                  format: email
+                  description: Recipient email address (must match an active inbox).
+                subject:
+                  type: string
+                  description: Email subject line.
+                  default: ""
+                body_plain:
+                  type: string
+                  description: Plain text body of the email.
+                  default: ""
+                body_html:
+                  type: string
+                  description: HTML body of the email.
+                  default: ""
+                message_id:
+                  type: string
+                  description: External message ID from the email headers.
+                  default: ""
+      responses:
+        "200":
+          description: Webhook processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookReceiveResponse"
+
+tags:
+  - name: System
+    description: Health check and system status endpoints.
+  - name: Inboxes
+    description: Inbox provisioning and management.
+  - name: Messages
+    description: Send and receive email messages.
+  - name: Webhooks
+    description: Webhook endpoints for external email providers.
