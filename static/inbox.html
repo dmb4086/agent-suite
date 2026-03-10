@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inbox - AgentWork</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a1f2e;
+            --bg-tertiary: #242b3d;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #334155;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+
+        .status-indicator.connected {
+            background: var(--success);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: var(--bg-tertiary);
+        }
+
+        button.secondary:hover {
+            background: var(--border);
+        }
+
+        .message-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .message-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .message-item:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .message-item.unread {
+            border-left: 3px solid var(--accent);
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .message-subject {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .message-preview {
+            font-size: 13px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .api-key-setup {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .toolbar button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📧 Inbox</h1>
+            <div class="api-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="api-key-setup" id="apiKeySetup">
+            <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="password" class="form-input" id="apiKeyInput" placeholder="Enter your API key">
+            </div>
+            <button onclick="saveApiKey()">Save API Key</button>
+        </div>
+
+        <div class="toolbar" id="toolbar" style="display: none;">
+            <button onclick="loadMessages()">🔄 Refresh</button>
+            <button onclick="openComposeModal()">✉️ Compose</button>
+            <button class="secondary" onclick="clearApiKey()">Clear API Key</button>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <div class="message-list" id="messageList">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading messages...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compose Modal -->
+    <div class="modal" id="composeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">New Message</h2>
+                <button class="close-btn" onclick="closeComposeModal()">&times;</button>
+            </div>
+            <form id="composeForm" onsubmit="sendMessage(event)">
+                <div class="form-group">
+                    <label class="form-label">To</label>
+                    <input type="email" class="form-input" id="composeTo" required placeholder="recipient@example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <input type="text" class="form-input" id="composeSubject" required placeholder="Subject">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Body</label>
+                    <textarea class="form-textarea" id="composeBody" required placeholder="Write your message here..."></textarea>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button type="submit">Send Message</button>
+                    <button type="button" class="secondary" onclick="closeComposeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Message Detail Modal -->
+    <div class="modal" id="messageModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="messageSubject">Subject</h2>
+                <button class="close-btn" onclick="closeMessageModal()">&times;</button>
+            </div>
+            <div id="messageContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let apiKey = localStorage.getItem('agentwork_api_key') || '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (apiKey) {
+                document.getElementById('apiKeyInput').value = apiKey;
+                document.getElementById('apiKeySetup').style.display = 'none';
+                document.getElementById('toolbar').style.display = 'flex';
+                loadMessages();
+            } else {
+                document.getElementById('apiKeySetup').style.display = 'block';
+                document.getElementById('toolbar').style.display = 'none';
+                showEmptyState();
+            }
+        });
+
+        function saveApiKey() {
+            const input = document.getElementById('apiKeyInput').value.trim();
+            if (!input) {
+                showError('Please enter an API key');
+                return;
+            }
+            apiKey = input;
+            localStorage.setItem('agentwork_api_key', apiKey);
+            document.getElementById('apiKeySetup').style.display = 'none';
+            document.getElementById('toolbar').style.display = 'flex';
+            loadMessages();
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem('agentwork_api_key');
+            apiKey = '';
+            document.getElementById('apiKeyInput').value = '';
+            document.getElementById('apiKeySetup').style.display = 'block';
+            document.getElementById('toolbar').style.display = 'none';
+            showEmptyState();
+        }
+
+        async function loadMessages() {
+            if (!apiKey) return;
+
+            updateStatus(true);
+            hideError();
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/inboxes/me/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load messages');
+                }
+
+                const data = await response.json();
+                displayMessages(data.messages || []);
+                updateStatus(false, true);
+            } catch (error) {
+                showError(error.message);
+                updateStatus(false, false);
+                showEmptyState();
+            }
+        }
+
+        function displayMessages(messages) {
+            const container = document.getElementById('messageList');
+
+            if (messages.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h2>No messages yet</h2>
+                        <p>When you receive emails, they'll appear here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => `
+                <div class="message-item ${!msg.is_read ? 'unread' : ''}" onclick="viewMessage(${msg.id})">
+                    <div class="message-header">
+                        <div class="message-sender">${escapeHtml(msg.sender || 'Unknown')}</div>
+                        <div class="message-time">${formatTime(msg.received_at)}</div>
+                    </div>
+                    <div class="message-subject">${escapeHtml(msg.subject || 'No Subject')}</div>
+                    <div class="message-preview">${escapeHtml((msg.body_text || '').substring(0, 100))}</div>
+                </div>
+            `).join('');
+        }
+
+        async function viewMessage(id) {
+            try {
+                const response = await fetch(`${API_BASE}/v1/inboxes/me/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load message');
+
+                const data = await response.json();
+                const message = data.messages.find(m => m.id === id);
+
+                if (message) {
+                    document.getElementById('messageSubject').textContent = message.subject || 'No Subject';
+                    document.getElementById('messageContent').innerHTML = `
+                        <div style="margin-bottom: 20px;">
+                            <p><strong>From:</strong> ${escapeHtml(message.sender)}</p>
+                            <p><strong>To:</strong> ${escapeHtml(message.recipient)}</p>
+                            <p><strong>Date:</strong> ${formatTime(message.received_at)}</p>
+                        </div>
+                        <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                            <pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(message.body_text || '')}</pre>
+                        </div>
+                    `;
+                    document.getElementById('messageModal').classList.add('active');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+
+            const to = document.getElementById('composeTo').value;
+            const subject = document.getElementById('composeSubject').value;
+            const body = document.getElementById('composeBody').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/inboxes/me/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to, subject, body })
+                });
+
+                if (!response.ok) throw new Error('Failed to send message');
+
+                closeComposeModal();
+                document.getElementById('composeForm').reset();
+                alert('Message sent successfully!');
+                loadMessages();
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function openComposeModal() {
+            document.getElementById('composeModal').classList.add('active');
+        }
+
+        function closeComposeModal() {
+            document.getElementById('composeModal').classList.remove('active');
+        }
+
+        function closeMessageModal() {
+            document.getElementById('messageModal').classList.remove('active');
+        }
+
+        function showEmptyState() {
+            document.getElementById('messageList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔐</div>
+                    <h2>Enter your API key to get started</h2>
+                    <p>Your API key connects this inbox to your account.</p>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error">⚠️ ${escapeHtml(message)}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        function hideError() {
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+
+        function updateStatus(loading, connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+
+            if (loading) {
+                indicator.className = 'status-indicator';
+                text.textContent = 'Loading...';
+            } else if (connected) {
+                indicator.className = 'status-indicator connected';
+                text.textContent = 'Connected';
+            } else {
+                indicator.className = 'status-indicator';
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            return date.toLocaleDateString();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Close modals on outside click
+        document.getElementById('composeModal').addEventListener('click', (e) => {
+            if (e.target.id === 'composeModal') closeComposeModal();
+        });
+
+        document.getElementById('messageModal').addEventListener('click', (e) => {
+            if (e.target.id === 'messageModal') closeMessageModal();
+        });
+    </script>
+</body>
+</html>
