@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-suite-sdk"
+version = "1.0.0"
+description = "Python SDK for Agent Suite API - Email, calendar, and docs for AI agents"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "AgentWork Team", email = "dev@agentwork.in"}
+]
+keywords = ["ai", "agent", "email", "api", "automation", "infrastructure"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Communications :: Email",
+]
+dependencies = [
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/dmb4086/agentwork-infrastructure"
+Documentation = "https://github.com/dmb4086/agentwork-infrastructure#readme"
+Repository = "https://github.com/dmb4086/agentwork-infrastructure"
+Issues = "https://github.com/dmb4086/agentwork-infrastructure/issues"
+
+[project.entry_points]
+agent-suite-sdk = "agent_suite_sdk:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent_suite_sdk*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
