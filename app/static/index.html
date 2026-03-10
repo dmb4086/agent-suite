@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentWork Email Inbox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --border: #30363d;
+            --success: #3fb950;
+            --error: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .api-key-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .api-key-section input {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            width: 300px;
+        }
+
+        .api-key-section button {
+            padding: 8px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .api-key-section button:hover {
+            opacity: 0.9;
+        }
+
+        .nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav button {
+            padding: 10px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .nav button.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .nav button:hover:not(.active) {
+            background: var(--bg-tertiary);
+        }
+
+        .inbox-view, .compose-view {
+            display: none;
+        }
+
+        .inbox-view.active, .compose-view.active {
+            display: block;
+        }
+
+        .email-list {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .email-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .email-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .email-item:last-child {
+            border-bottom: none;
+        }
+
+        .email-item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .email-sender {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .email-date {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .email-subject {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .email-preview {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .email-detail {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+            display: none;
+        }
+
+        .email-detail.active {
+            display: block;
+        }
+
+        .email-detail-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+
+        .email-detail-subject {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .email-meta {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .email-body {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .back-btn {
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .compose-form {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-group textarea {
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        .send-btn {
+            padding: 10px 24px;
+            background: var(--success);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert.success {
+            background: rgba(63, 185, 80, 0.15);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .alert.error {
+            background: rgba(248, 81, 73, 0.15);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .api-key-section {
+                flex-direction: column;
+            }
+
+            .api-key-section input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📧 AgentWork Inbox</h1>
+        <div class="api-key-section">
+            <input type="password" id="apiKey" placeholder="Enter your API key">
+            <button onclick="saveApiKey()">Save</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="alert" class="alert"></div>
+
+        <div class="nav">
+            <button id="inboxBtn" class="active" onclick="showInbox()">📥 Inbox</button>
+            <button id="composeBtn" onclick="showCompose()">✏️ Compose</button>
+        </div>
+
+        <div id="inboxView" class="inbox-view active">
+            <div id="emailList" class="email-list">
+                <div class="loading">Loading emails...</div>
+            </div>
+
+            <div id="emailDetail" class="email-detail">
+                <div class="email-detail-header">
+                    <div class="email-detail-subject" id="detailSubject"></div>
+                    <div class="email-meta">
+                        <strong>From:</strong> <span id="detailFrom"></span><br>
+                        <strong>Date:</strong> <span id="detailDate"></span>
+                    </div>
+                </div>
+                <div class="email-body" id="detailBody"></div>
+                <button class="back-btn" onclick="hideDetail()">← Back to Inbox</button>
+            </div>
+        </div>
+
+        <div id="composeView" class="compose-view">
+            <form class="compose-form" onsubmit="sendEmail(event)">
+                <div class="form-group">
+                    <label for="to">To:</label>
+                    <input type="email" id="to" required placeholder="recipient@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <input type="text" id="subject" required placeholder="Email subject">
+                </div>
+                <div class="form-group">
+                    <label for="body">Message:</label>
+                    <textarea id="body" required placeholder="Write your message here..."></textarea>
+                </div>
+                <button type="submit" class="send-btn" id="sendBtn">Send Email</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let apiKey = localStorage.getItem('api_key') || '';
+
+        // Load API key on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (apiKey) {
+                document.getElementById('apiKey').value = apiKey;
+                loadEmails();
+            }
+        });
+
+        function saveApiKey() {
+            apiKey = document.getElementById('apiKey').value.trim();
+            if (apiKey) {
+                localStorage.setItem('api_key', apiKey);
+                showAlert('API key saved!', 'success');
+                loadEmails();
+            } else {
+                showAlert('Please enter a valid API key', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} active`;
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 3000);
+        }
+
+        function showInbox() {
+            document.getElementById('inboxView').classList.add('active');
+            document.getElementById('composeView').classList.remove('active');
+            document.getElementById('inboxBtn').classList.add('active');
+            document.getElementById('composeBtn').classList.remove('active');
+            loadEmails();
+        }
+
+        function showCompose() {
+            document.getElementById('composeView').classList.add('active');
+            document.getElementById('inboxView').classList.remove('active');
+            document.getElementById('composeBtn').classList.add('active');
+            document.getElementById('inboxBtn').classList.remove('active');
+        }
+
+        async function loadEmails() {
+            if (!apiKey) {
+                document.getElementById('emailList').innerHTML = 
+                    '<div class="empty-state"><h3>No API Key</h3><p>Please enter your API key above</p></div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/inboxes/me/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load emails');
+                }
+
+                const emails = await response.json();
+                displayEmails(emails);
+            } catch (error) {
+                document.getElementById('emailList').innerHTML = 
+                    `<div class="empty-state"><h3>Error Loading Emails</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        function displayEmails(emails) {
+            const listEl = document.getElementById('emailList');
+
+            if (!emails || emails.length === 0) {
+                listEl.innerHTML = 
+                    '<div class="empty-state"><h3>No Emails</h3><p>Your inbox is empty</p></div>';
+                return;
+            }
+
+            listEl.innerHTML = emails.map((email, index) => `
+                <div class="email-item" onclick="showEmailDetail(${index})" data-index="${index}">
+                    <div class="email-item-header">
+                        <span class="email-sender">${escapeHtml(email.from || 'Unknown')}</span>
+                        <span class="email-date">${formatDate(email.created_at || email.date)}</span>
+                    </div>
+                    <div class="email-subject">${escapeHtml(email.subject || 'No Subject')}</div>
+                    <div class="email-preview">${escapeHtml((email.body || '').substring(0, 100))}...</div>
+                </div>
+            `).join('');
+
+            // Store emails for detail view
+            window.currentEmails = emails;
+        }
+
+        function showEmailDetail(index) {
+            const email = window.currentEmails[index];
+            if (!email) return;
+
+            document.getElementById('detailSubject').textContent = email.subject || 'No Subject';
+            document.getElementById('detailFrom').textContent = email.from || 'Unknown';
+            document.getElementById('detailDate').textContent = formatDate(email.created_at || email.date);
+            document.getElementById('detailBody').textContent = email.body || '';
+
+            document.getElementById('emailList').style.display = 'none';
+            document.getElementById('emailDetail').classList.add('active');
+        }
+
+        function hideDetail() {
+            document.getElementById('emailDetail').classList.remove('active');
+            document.getElementById('emailList').style.display = 'block';
+        }
+
+        async function sendEmail(event) {
+            event.preventDefault();
+
+            if (!apiKey) {
+                showAlert('Please enter your API key first', 'error');
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            const to = document.getElementById('to').value;
+            const subject = document.getElementById('subject').value;
+            const body = document.getElementById('body').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/inboxes/me/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to, subject, body })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to send email');
+                }
+
+                showAlert('Email sent successfully!', 'success');
+                
+                // Clear form
+                document.getElementById('to').value = '';
+                document.getElementById('subject').value = '';
+                document.getElementById('body').value = '';
+            } catch (error) {
+                showAlert(`Error: ${error.message}`, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Email';
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
