@@ -4,9 +4,8 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 
-# Inbox schemas
 class InboxCreate(BaseModel):
-    pass  # No fields needed - we generate everything
+    pass
 
 
 class InboxResponse(BaseModel):
@@ -14,7 +13,7 @@ class InboxResponse(BaseModel):
     email_address: str
     api_key: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -23,12 +22,11 @@ class InboxPublic(BaseModel):
     id: UUID
     email_address: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 
-# Message schemas
 class MessageCreate(BaseModel):
     to: EmailStr
     subject: str
@@ -44,7 +42,11 @@ class MessageResponse(BaseModel):
     body_text: Optional[str]
     received_at: datetime
     is_read: bool
-    
+    attachments_meta: Optional[str] = None
+    spam_score: Optional[str] = None
+    dkim_passed: Optional[bool] = None
+    spf_passed: Optional[bool] = None
+
     class Config:
         from_attributes = True
 
