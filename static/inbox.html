@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inbox - Agent Suite</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        a { color: #bb86fc; text-decoration: none; }
+        .api-key-section { margin-bottom: 20px; padding: 15px; background: #1e1e1e; border-radius: 8px; }
+        input[type="text"], input[type="email"], textarea { width: 100%; padding: 10px; margin: 5px 0; background: #2c2c2c; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
+        button { background: #bb86fc; color: #000; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #9965f4; }
+        .message-list { list-style: none; padding: 0; }
+        .message-item { background: #1e1e1e; margin-bottom: 10px; padding: 15px; border-radius: 8px; cursor: pointer; border: 1px solid #333; }
+        .message-item:hover { border-color: #bb86fc; }
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .message-subject { font-weight: bold; font-size: 1.1em; }
+        .message-sender { color: #aaa; font-size: 0.9em; }
+        .message-content { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333; white-space: pre-wrap; color: #ccc; }
+        .error { color: #cf6679; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Agent Suite - Inbox</h1>
+            <nav>
+                <a href="/inbox">Inbox</a> | <a href="/compose">Compose</a>
+            </nav>
+        </header>
+
+        <div class="api-key-section">
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" placeholder="Enter your API key">
+            <button onclick="saveApiKey()">Save</button>
+            <div id="errorMsg" class="error"></div>
+        </div>
+
+        <ul id="messagesList" class="message-list">
+            <li>Loading messages...</li>
+        </ul>
+    </div>
+
+    <script>
+        const apiKeyInput = document.getElementById('apiKey');
+        const messagesList = document.getElementById('messagesList');
+        const errorMsg = document.getElementById('errorMsg');
+
+        // Load API key from local storage
+        if (localStorage.getItem('agentSuiteApiKey')) {
+            apiKeyInput.value = localStorage.getItem('agentSuiteApiKey');
+            fetchMessages();
+        }
+
+        function saveApiKey() {
+            localStorage.setItem('agentSuiteApiKey', apiKeyInput.value);
+            fetchMessages();
+        }
+
+        async function fetchMessages() {
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) return;
+
+            errorMsg.innerText = '';
+            messagesList.innerHTML = '<li>Loading messages...</li>';
+
+            try {
+                const response = await fetch('/v1/inboxes/me/messages', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error(response.status === 401 ? 'Invalid API Key' : 'Failed to load messages');
+                }
+
+                const data = await response.json();
+                renderMessages(data.messages);
+            } catch (err) {
+                errorMsg.innerText = err.message;
+                messagesList.innerHTML = '';
+            }
+        }
+
+        function renderMessages(messages) {
+            if (!messages || messages.length === 0) {
+                messagesList.innerHTML = '<li>No messages found.</li>';
+                return;
+            }
+
+            messagesList.innerHTML = '';
+            messages.forEach(msg => {
+                const li = document.createElement('li');
+                li.className = 'message-item';
+                
+                const date = new Date(msg.received_at).toLocaleString();
+                
+                li.innerHTML = `
+                    <div class="message-header">
+                        <span class="message-sender">${msg.sender}</span>
+                        <span class="message-date" style="color: #888; font-size: 0.8em;">${date}</span>
+                    </div>
+                    <div class="message-subject">${msg.subject || '(No Subject)'}</div>
+                    <div class="message-content">${msg.body_text || msg.body_html || '(No Content)'}</div>
+                `;
+
+                li.addEventListener('click', () => {
+                    const content = li.querySelector('.message-content');
+                    content.style.display = content.style.display === 'block' ? 'none' : 'block';
+                });
+
+                messagesList.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>

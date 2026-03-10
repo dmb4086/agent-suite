@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose - Agent Suite</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        a { color: #bb86fc; text-decoration: none; }
+        .api-key-section { margin-bottom: 20px; padding: 15px; background: #1e1e1e; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="email"], textarea { width: 100%; padding: 10px; background: #2c2c2c; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 200px; resize: vertical; }
+        button { background: #bb86fc; color: #000; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #9965f4; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .error { color: #cf6679; margin-top: 10px; }
+        .success { color: #03dac6; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Agent Suite - Compose</h1>
+            <nav>
+                <a href="/inbox">Inbox</a> | <a href="/compose">Compose</a>
+            </nav>
+        </header>
+
+        <div class="api-key-section">
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" placeholder="Enter your API key">
+            <button onclick="saveApiKey()">Save</button>
+        </div>
+
+        <form id="composeForm">
+            <div class="form-group">
+                <label for="to">To:</label>
+                <input type="email" id="to" required placeholder="recipient@example.com">
+            </div>
+            <div class="form-group">
+                <label for="subject">Subject:</label>
+                <input type="text" id="subject" required placeholder="Email subject">
+            </div>
+            <div class="form-group">
+                <label for="body">Message:</label>
+                <textarea id="body" required placeholder="Write your message here..."></textarea>
+            </div>
+            <button type="submit" id="sendBtn">Send Email</button>
+            <div id="statusMsg"></div>
+        </form>
+    </div>
+
+    <script>
+        const apiKeyInput = document.getElementById('apiKey');
+        const composeForm = document.getElementById('composeForm');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusMsg = document.getElementById('statusMsg');
+
+        // Load API key from local storage
+        if (localStorage.getItem('agentSuiteApiKey')) {
+            apiKeyInput.value = localStorage.getItem('agentSuiteApiKey');
+        }
+
+        function saveApiKey() {
+            localStorage.setItem('agentSuiteApiKey', apiKeyInput.value);
+            statusMsg.className = 'success';
+            statusMsg.innerText = 'API key saved.';
+            setTimeout(() => statusMsg.innerText = '', 2000);
+        }
+
+        composeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const apiKey = apiKeyInput.value;
+            
+            if (!apiKey) {
+                statusMsg.className = 'error';
+                statusMsg.innerText = 'Please save your API key first.';
+                return;
+            }
+
+            const to = document.getElementById('to').value;
+            const subject = document.getElementById('subject').value;
+            const body = document.getElementById('body').value;
+
+            sendBtn.disabled = true;
+            statusMsg.className = '';
+            statusMsg.innerText = 'Sending...';
+
+            try {
+                const response = await fetch('/v1/inboxes/me/send', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to, subject, body })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to send email');
+                }
+
+                statusMsg.className = 'success';
+                statusMsg.innerText = 'Email sent successfully!';
+                document.getElementById('to').value = '';
+                document.getElementById('subject').value = '';
+                document.getElementById('body').value = '';
+            } catch (err) {
+                statusMsg.className = 'error';
+                statusMsg.innerText = err.message;
+            } finally {
+                sendBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

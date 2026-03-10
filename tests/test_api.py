@@ -97,3 +97,16 @@ def test_list_messages(setup_db):
     data = response.json()
     assert data["total"] == 1
     assert data["messages"][0]["subject"] == "Test Subject"
+
+
+def test_inbox_page_served():
+    response = client.get("/inbox")
+    assert response.status_code == 200
+    assert "Agent Suite - Inbox" in response.text
+
+
+
+def test_compose_page_served():
+    response = client.get("/compose")
+    assert response.status_code == 200
+    assert "Agent Suite - Compose" in response.text
