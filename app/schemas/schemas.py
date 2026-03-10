@@ -14,7 +14,7 @@ class InboxResponse(BaseModel):
     email_address: str
     api_key: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -23,7 +23,21 @@ class InboxPublic(BaseModel):
     id: UUID
     email_address: str
     created_at: datetime
-    
+
+    class Config:
+        from_attributes = True
+
+
+# Attachment schemas
+class AttachmentResponse(BaseModel):
+    id: UUID
+    filename: str
+    content_type: str
+    size: int
+    s3_bucket: Optional[str] = None
+    s3_key: Optional[str] = None
+    uploaded_at: datetime
+
     class Config:
         from_attributes = True
 
@@ -44,7 +58,12 @@ class MessageResponse(BaseModel):
     body_text: Optional[str]
     received_at: datetime
     is_read: bool
-    
+    spf_pass: Optional[bool] = None
+    dkim_pass: Optional[bool] = None
+    spam_score: Optional[float] = None
+    is_verified: Optional[bool] = None
+    attachments: List[AttachmentResponse] = []
+
     class Config:
         from_attributes = True
 

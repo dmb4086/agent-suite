@@ -1,14 +1,21 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from typing import List
+import logging
+from typing import List, Optional
+
 import boto3
 from botocore.exceptions import ClientError
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
 from app.db.database import get_db, engine, Base
 from app.models import models
 from app.schemas import schemas
+from app.services.email_verification import verify_email, verify_mailgun_webhook_signature
+from app.services.attachment_service import parse_and_store_attachments, get_s3_client
+
+logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -142,27 +149,77 @@ def list_messages(
 
 
 @app.post("/v1/webhooks/mailgun")
-def mailgun_webhook(
-    sender: str,
-    recipient: str,
-    subject: str = "",
-    body_plain: str = "",
-    body_html: str = "",
-    message_id: str = "",
-    db: Session = Depends(get_db)
+async def mailgun_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
 ):
-    """Receive incoming email from Mailgun."""
+    """Receive incoming email from Mailgun with verification and attachment handling.
+
+    Performs the following checks on each incoming email:
+    1. Verifies Mailgun webhook signature (if signing key is configured)
+    2. Validates SPF/DKIM authentication results
+    3. Filters spam based on configurable score threshold (default > 5)
+    4. Parses and stores attachments in S3
+
+    Emails that fail spam filtering are rejected with a 400 response.
+    """
+    # Parse form data (Mailgun sends multipart/form-data)
+    form = await request.form()
+
+    sender = form.get("sender", "")
+    recipient = form.get("recipient", "")
+    subject = form.get("subject", "")
+    body_plain = form.get("body-plain", "") or form.get("body_plain", "")
+    body_html = form.get("body-html", "") or form.get("body_html", "")
+    message_id = form.get("Message-Id", "") or form.get("message_id", "")
+
+    # Mailgun webhook signature verification
+    if settings.mailgun_signing_key:
+        timestamp = form.get("timestamp", "")
+        token = form.get("token", "")
+        signature = form.get("signature", "")
+        if not verify_mailgun_webhook_signature(
+            settings.mailgun_signing_key, timestamp, token, signature
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid webhook signature",
+            )
+
+    # Email verification (SPF/DKIM/Spam)
+    spf_header = form.get("X-Mailgun-Spf", "")
+    dkim_header = form.get("X-Mailgun-Dkim-Check-Result", "")
+    spam_score_header = form.get("X-Mailgun-SSscore", "") or form.get("spam-score", "")
+
+    verification = verify_email(
+        spf_header=spf_header,
+        dkim_header=dkim_header,
+        spam_score_header=spam_score_header,
+        spam_threshold=settings.spam_score_threshold,
+    )
+
+    # Reject spam
+    if verification.is_spam:
+        logger.warning(
+            "Rejected spam email from %s (score: %s)",
+            sender,
+            verification.spam_score,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Email rejected: {verification.rejection_reason}",
+        )
+
     # Find inbox by recipient email
     inbox = db.query(models.Inbox).filter(
         models.Inbox.email_address == recipient,
         models.Inbox.is_active == True
     ).first()
-    
+
     if not inbox:
-        # Silently drop - inbox doesn't exist or inactive
         return {"status": "dropped"}
-    
-    # Store message
+
+    # Store message with verification data
     message = models.Message(
         inbox_id=inbox.id,
         sender=sender,
@@ -170,11 +227,49 @@ def mailgun_webhook(
         subject=subject,
         body_text=body_plain,
         body_html=body_html,
-        message_id=message_id
+        message_id=message_id,
+        spf_pass=verification.spf_pass,
+        dkim_pass=verification.dkim_pass,
+        spam_score=verification.spam_score,
+        is_verified=verification.is_verified,
     )
     db.add(message)
+    db.flush()  # Get the message ID without committing
+
+    # Handle attachments
+    attachment_count = int(form.get("attachment-count", "0") or "0")
+    if attachment_count > 0:
+        files = []
+        for i in range(1, attachment_count + 1):
+            file = form.get(f"attachment-{i}")
+            if file and isinstance(file, UploadFile):
+                files.append(file)
+
+        if files:
+            s3_client = None
+            if settings.s3_bucket and settings.aws_access_key_id:
+                s3_client = get_s3_client(
+                    settings.aws_access_key_id,
+                    settings.aws_secret_access_key,
+                    settings.aws_region,
+                )
+
+            await parse_and_store_attachments(
+                files=files,
+                message_id=message.id,
+                db=db,
+                s3_client=s3_client,
+                bucket=settings.s3_bucket,
+                s3_prefix=settings.s3_prefix,
+            )
+
     db.commit()
-    
+
     # TODO: Trigger user webhook if configured
-    
-    return {"status": "received", "message_id": str(message.id)}
+
+    return {
+        "status": "received",
+        "message_id": str(message.id),
+        "verified": verification.is_verified,
+        "spam_score": verification.spam_score,
+    }
