@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Suite - Email Inbox</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --bg-secondary: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79c0ff;
+            --success: #3fb950;
+            --danger: #f85149;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+        
+        .logo { font-size: 20px; font-weight: 600; color: var(--accent); }
+        
+        .nav { display: flex; gap: 16px; }
+        .nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .nav a:hover, .nav a.active { color: var(--text); background: var(--bg-secondary); }
+        
+        /* Forms */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        h1 { margin-bottom: 20px; font-size: 24px; }
+        
+        label { display: block; margin-bottom: 8px; color: var(--text-secondary); }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-secondary); border: 1px solid var(--border); }
+        
+        /* Messages */
+        .message-list { list-style: none; }
+        .message-item {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .message-item:hover { border-color: var(--accent); }
+        .message-item.unread { border-left: 3px solid var(--accent); }
+        
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .message-from { font-weight: 500; }
+        .message-date { color: var(--text-secondary); font-size: 12px; }
+        .message-subject { color: var(--text-secondary); font-size: 14px; }
+        
+        /* Detail View */
+        .message-detail { }
+        .message-detail .meta {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .message-detail .meta p { margin-bottom: 8px; }
+        .message-detail .meta strong { color: var(--text-secondary); }
+        .message-body {
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        /* Error */
+        .error {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        /* Loading */
+        .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+        
+        /* Empty */
+        .empty { text-align: center; padding: 60px; color: var(--text-secondary); }
+        
+        /* Hidden */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login View -->
+        <div id="login-view">
+            <div class="card" style="max-width: 400px; margin: 80px auto;">
+                <h1>🔐 Login</h1>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Enter your API key to access your inbox.
+                </p>
+                <div id="login-error" class="error hidden"></div>
+                <form id="login-form">
+                    <label>API Key</label>
+                    <input type="password" id="api-key" placeholder="Enter your API key" required>
+                    <button type="submit">Login</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Main View -->
+        <div id="main-view" class="hidden">
+            <header>
+                <div class="logo">📧 Agent Suite</div>
+                <nav class="nav">
+                    <a href="#" class="active" data-page="inbox">Inbox</a>
+                    <a href="#" data-page="compose">Compose</a>
+                    <a href="#" id="logout-btn">Logout</a>
+                </nav>
+            </header>
+            
+            <!-- Inbox Page -->
+            <div id="inbox-page">
+                <h1>Inbox</h1>
+                <div id="inbox-loading" class="loading">Loading messages...</div>
+                <div id="inbox-error" class="error hidden"></div>
+                <ul id="message-list" class="message-list hidden"></ul>
+                <div id="inbox-empty" class="empty hidden">No messages yet</div>
+            </div>
+            
+            <!-- Compose Page -->
+            <div id="compose-page" class="hidden">
+                <h1>Compose Email</h1>
+                <div class="card">
+                    <form id="compose-form">
+                        <label>To</label>
+                        <input type="email" id="compose-to" placeholder="recipient@example.com" required>
+                        
+                        <label>Subject</label>
+                        <input type="text" id="compose-subject" placeholder="Email subject" required>
+                        
+                        <label>Body</label>
+                        <textarea id="compose-body" rows="10" placeholder="Email body..."></textarea>
+                        
+                        <div id="compose-error" class="error hidden"></div>
+                        <div id="compose-success" class="hidden" style="color: var(--success); margin-bottom: 16px;">
+                            ✓ Email sent successfully!
+                        </div>
+                        
+                        <button type="submit">Send Email</button>
+                        <button type="button" class="secondary" id="clear-btn">Clear</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Message Detail Page -->
+            <div id="detail-page" class="hidden">
+                <button class="secondary" onclick="showInbox()" style="margin-bottom: 16px;">← Back to Inbox</button>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = window.location.origin;
+        let apiKey = localStorage.getItem('agent_suite_api_key');
+        
+        // Check if already logged in
+        if (apiKey) {
+            showMainView();
+        }
+        
+        // Login form
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            apiKey = document.getElementById('api-key').value;
+            localStorage.setItem('agent_suite_api_key', apiKey);
+            showMainView();
+        });
+        
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            apiKey = null;
+            localStorage.removeItem('agent_suite_api_key');
+            showLoginView();
+        });
+        
+        // Navigation
+        document.querySelectorAll('.nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = e.target.dataset.page;
+                if (page === 'inbox') showInbox();
+                if (page === 'compose') showCompose();
+            });
+        });
+        
+        // Compose form
+        document.getElementById('compose-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const to = document.getElementById('compose-to').value;
+            const subject = document.getElementById('compose-subject').value;
+            const body = document.getElementById('compose-body').value;
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/inboxes/me/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to, subject, body })
+                });
+                
+                if (!res.ok) throw new Error('Failed to send email');
+                
+                document.getElementById('compose-success').classList.remove('hidden');
+                document.getElementById('compose-error').classList.add('hidden');
+                document.getElementById('compose-form').reset();
+                
+                setTimeout(() => {
+                    document.getElementById('compose-success').classList.add('hidden');
+                }, 3000);
+            } catch (err) {
+                document.getElementById('compose-error').textContent = err.message;
+                document.getElementById('compose-error').classList.remove('hidden');
+            }
+        });
+        
+        // Clear button
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            document.getElementById('compose-form').reset();
+            document.getElementById('compose-success').classList.add('hidden');
+            document.getElementById('compose-error').classList.add('hidden');
+        });
+        
+        // View functions
+        function showLoginView() {
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('main-view').classList.add('hidden');
+        }
+        
+        function showMainView() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('main-view').classList.remove('hidden');
+            showInbox();
+        }
+        
+        function showInbox() {
+            document.getElementById('inbox-page').classList.remove('hidden');
+            document.getElementById('compose-page').classList.add('hidden');
+            document.getElementById('detail-page').classList.add('hidden');
+            loadMessages();
+        }
+        
+        function showCompose() {
+            document.getElementById('inbox-page').classList.add('hidden');
+            document.getElementById('compose-page').classList.remove('hidden');
+            document.getElementById('detail-page').classList.add('hidden');
+        }
+        
+        function showDetail(message) {
+            document.getElementById('inbox-page').classList.add('hidden');
+            document.getElementById('compose-page').classList.add('hidden');
+            document.getElementById('detail-page').classList.remove('hidden');
+            
+            const date = new Date(message.received_at).toLocaleString();
+            document.getElementById('detail-content').innerHTML = `
+                <h1>${escapeHtml(message.subject)}</h1>
+                <div class="message-detail">
+                    <div class="meta">
+                        <p><strong>From:</strong> ${escapeHtml(message.sender)}</p>
+                        <p><strong>To:</strong> ${escapeHtml(message.recipient)}</p>
+                        <p><strong>Date:</strong> ${date}</p>
+                    </div>
+                    <div class="message-body">${escapeHtml(message.body_text || message.body_html || '')}</div>
+                </div>
+            `;
+        }
+        
+        // API functions
+        async function loadMessages() {
+            document.getElementById('inbox-loading').classList.remove('hidden');
+            document.getElementById('message-list').classList.add('hidden');
+            document.getElementById('inbox-error').classList.add('hidden');
+            document.getElementById('inbox-empty').classList.add('hidden');
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/inboxes/me/messages`, {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                
+                if (!res.ok) throw new Error('Failed to load messages');
+                
+                const data = await res.json();
+                const messages = data.messages || [];
+                
+                document.getElementById('inbox-loading').classList.add('hidden');
+                
+                if (messages.length === 0) {
+                    document.getElementById('inbox-empty').classList.remove('hidden');
+                    return;
+                }
+                
+                const list = document.getElementById('message-list');
+                list.innerHTML = messages.map(msg => `
+                    <li class="message-item ${!msg.is_read ? 'unread' : ''}" onclick='showDetail(${JSON.stringify(msg)})'>
+                        <div class="message-header">
+                            <span class="message-from">${escapeHtml(msg.sender)}</span>
+                            <span class="message-date">${new Date(msg.received_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="message-subject">${escapeHtml(msg.subject)}</div>
+                    </li>
+                `).join('');
+                list.classList.remove('hidden');
+                
+            } catch (err) {
+                document.getElementById('inbox-loading').classList.add('hidden');
+                document.getElementById('inbox-error').textContent = err.message;
+                document.getElementById('inbox-error').classList.remove('hidden');
+            }
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

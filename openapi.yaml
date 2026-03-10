@@ -1,0 +1,469 @@
+# Agent Suite API Specification
+
+openapi: 3.0.0
+info:
+  title: Agent Suite API
+  description: |
+    Email, calendar, and docs APIs for AI agents. No human OAuth required.
+    
+    ## Quick Start
+    ```bash
+    pip install agent-suite-sdk
+    ```
+    
+    ```python
+    from agent_suite_sdk import AgentSuiteClient
+    
+    client = AgentSuiteClient(api_key="your-api-key")
+    inbox = client.create_inbox()
+    print(inbox.email_address)
+    ```
+  version: 1.0.0
+  contact:
+    name: AgentWork Team
+    url: https://github.com/dmb4086/agentwork-infrastructure
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.agentwork.in
+    description: Production
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /v1/inboxes:
+    post:
+      summary: Create a new inbox
+      operationId: createInbox
+      tags:
+        - Inboxes
+      responses:
+        '201':
+          description: Inbox created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      summary: List all inboxes
+      operationId: listInboxes
+      tags:
+        - Inboxes
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of inboxes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inboxes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Inbox'
+                  total:
+                    type: integer
+
+  /v1/inboxes/{inbox_id}:
+    get:
+      summary: Get inbox details
+      operationId: getInbox
+      tags:
+        - Inboxes
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Inbox details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete an inbox
+      operationId: deleteInbox
+      tags:
+        - Inboxes
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Inbox deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/inboxes/{inbox_id}/send:
+    post:
+      summary: Send an email
+      operationId: sendEmail
+      tags:
+        - Emails
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '201':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Email'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/inboxes/{inbox_id}/messages:
+    get:
+      summary: List messages in inbox
+      operationId: listMessages
+      tags:
+        - Emails
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Email'
+                  total:
+                    type: integer
+
+  /v1/inboxes/{inbox_id}/messages/{message_id}:
+    get:
+      summary: Get a specific message
+      operationId: getMessage
+      tags:
+        - Emails
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Email'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/inboxes/{inbox_id}/webhooks:
+    post:
+      summary: Register a webhook
+      operationId: createWebhook
+      tags:
+        - Webhooks
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+      responses:
+        '201':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      summary: List webhooks
+      operationId: listWebhooks
+      tags:
+        - Webhooks
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+
+  /v1/inboxes/{inbox_id}/webhooks/{webhook_id}:
+    delete:
+      summary: Delete a webhook
+      operationId: deleteWebhook
+      tags:
+        - Webhooks
+      parameters:
+        - name: inbox_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Webhook deleted
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Bearer token with format "Bearer YOUR_API_KEY"
+
+  schemas:
+    Inbox:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique inbox identifier
+        email_address:
+          type: string
+          format: email
+          description: Email address for this inbox
+        api_key:
+          type: string
+          description: API key for this inbox (only on creation)
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SendEmailRequest:
+      type: object
+      required:
+        - to
+        - subject
+        - body
+      properties:
+        to:
+          type: string
+          format: email
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject
+        body:
+          type: string
+          description: Email body (plain text or HTML)
+        body_type:
+          type: string
+          enum: [text, html]
+          default: text
+        from:
+          type: string
+          format: email
+          description: Custom sender (optional)
+        reply_to:
+          type: string
+          format: email
+        attachments:
+          type: array
+          items:
+            type: string
+            format: binary
+
+    Email:
+      type: object
+      properties:
+        id:
+          type: string
+        inbox_id:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        body_type:
+          type: string
+          enum: [text, html]
+        received_at:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              filename:
+                type: string
+              content_type:
+                type: string
+              size:
+                type: integer
+              url:
+                type: string
+
+    WebhookCreate:
+      type: object
+      required:
+        - url
+        - events
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Webhook endpoint URL
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - email.received
+              - email.sent
+              - email.failed
+        secret:
+          type: string
+          description: Optional secret for signature verification
+
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+        inbox_id:
+          type: string
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
