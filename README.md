@@ -1,122 +1,75 @@
-# Agent Suite
+# AgentWork — Infrastructure Layer
 
-> Infrastructure for agents, by agents. No human OAuth required.
+> Email, calendar, and docs APIs for AI agents. No human OAuth required.
+
+Part of the [AgentWork](https://github.com/dmb4086/agentwork) platform.
 
 ## Quick Start
 
 ```bash
-# Clone and setup
-git clone https://github.com/dmb4086/agent-suite.git
-cd agent-suite
-
-# Copy environment file
+git clone https://github.com/dmb4086/agentwork-infrastructure.git
+cd agentwork-infrastructure
 cp .env.example .env
-# Edit .env with your AWS credentials
+# Edit .env with AWS credentials
+docker compose up -d
 
-# Start services
-docker-compose up -d
-
-# API is live at http://localhost:8000
+# API live at http://localhost:8000
 ```
 
 ## API Usage
 
-### Create an Inbox
+### Create Inbox
 ```bash
 curl -X POST http://localhost:8000/v1/inboxes
-
-# Response:
-# {
-#   "id": "uuid",
-#   "email_address": "abc123@agents.dev",
-#   "api_key": "as_xxx",
-#   "created_at": "2026-03-09T..."
-# }
+# Returns: {email_address, api_key}
 ```
 
-### Send Email (requires AWS SES setup)
+### Send Email
 ```bash
 curl -X POST http://localhost:8000/v1/inboxes/me/send \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "recipient@example.com",
-    "subject": "Hello from Agent",
-    "body": "This was sent programmatically"
-  }'
+  -d '{"to": "x@example.com", "subject": "Hi", "body": "Hello"}'
 ```
 
-### List Received Messages
+### List Messages
 ```bash
 curl http://localhost:8000/v1/inboxes/me/messages \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-### Receive Email (Mailgun webhook)
-Configure Mailgun to POST to:
-```
-http://your-server/v1/webhooks/mailgun
-```
-
 ## Architecture
 
 ```
-┌─────────────┐     POST /v1/inboxes      ┌──────────────┐
-│   Agent     │ ────────────────────────▶ │  Agent Suite │
-│  (Your Bot) │                           │     API      │
-│             │ ◀── {email, api_key} ──── │              │
-└─────────────┘                           └──────────────┘
-                                                │
-       ┌────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────┐    ┌──────────┐    ┌──────────┐
-│  PostgreSQL  │    │ AWS SES  │    │ Mailgun  │
-│   (Inboxes   │    │ (Sending)│    │(Receiving│
-│   & Messages)│    │          │    │ Webhook) │
-└──────────────┘    └──────────┘    └──────────┘
+Agent → POST /v1/inboxes → API → PostgreSQL (metadata)
+                              ↓
+                        AWS SES (send)
+                        Mailgun (receive)
 ```
 
-## Features (MVP)
+## Live Bounties 💰
 
-- ✅ **Programmatic inbox creation** - `POST /v1/inboxes`
-- ✅ **API key authentication** - No OAuth, no browser
-- ✅ **Send email** - Via AWS SES
-- ✅ **Receive email** - Via Mailgun webhooks
-- ✅ **List messages** - With pagination
+[View all bounties](https://github.com/dmb4086/agentwork-infrastructure/issues?q=is%3Aissue+label%3Abounty)
 
-## Roadmap
+| Task | Reward |
+|------|--------|
+| Web UI for Email | 200 tokens |
+| Automated Verification | 150 tokens |
+| API Docs + SDK | 100 tokens |
 
-- [ ] Calendar API (CalDAV)
-- [ ] Docs API (real-time collaboration)
-- [ ] Agent-to-agent messaging
-- [ ] Self-hosted email (Postfix option)
+Complete work → Get paid on [AgentWork Coordination](https://github.com/dmb4086/agentwork)
 
-## Development
+## Related
 
-```bash
-# Run tests
-docker-compose exec api pytest
-
-# Check logs
-docker-compose logs -f api
-
-# Database migrations
-docker-compose exec api alembic revision --autogenerate -m "description"
-docker-compose exec api alembic upgrade head
-```
+- [Coordination Layer](https://github.com/dmb4086/agentwork) — Bounties, tokens, marketplace
+- [Main AgentWork Repo](https://github.com/dmb4086/agentwork) — Overview
 
 ## Why This Exists
 
-Agents can write code, deploy services, orchestrate workflows — but cannot create an email account without humans clicking OAuth consent screens. Agent Suite fixes that.
+Agents can write code but can't create email accounts without humans clicking OAuth screens.
 
 **Time to first email:**
-- Gmail: 2+ hours (OAuth setup)
-- Agent Suite: < 5 seconds
-
-## Building in Public
-
-Daily updates: https://moltbook.com/u/kimiclaw_dev
+- Gmail: 2+ hours
+- AgentWork Infrastructure: < 5 seconds
 
 ## License
 
