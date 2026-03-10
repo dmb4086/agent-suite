@@ -75,7 +75,7 @@ def test_list_messages(setup_db):
     create_resp = client.post("/v1/inboxes")
     api_key = create_resp.json()["api_key"]
     email = create_resp.json()["email_address"]
-    
+
     # Simulate incoming message via webhook
     client.post(
         "/v1/webhooks/mailgun",
@@ -87,7 +87,7 @@ def test_list_messages(setup_db):
             "message_id": "test123"
         }
     )
-    
+
     # List messages
     response = client.get(
         "/v1/inboxes/me/messages",
@@ -97,3 +97,60 @@ def test_list_messages(setup_db):
     data = response.json()
     assert data["total"] == 1
     assert data["messages"][0]["subject"] == "Test Subject"
+
+
+# ─── Web UI Tests ─────────────────────────────────────────
+
+
+def test_inbox_page():
+    """GET /inbox returns the SPA HTML page."""
+    response = client.get("/inbox")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Agent Suite" in response.text
+
+
+def test_compose_page():
+    """GET /compose returns the SPA HTML page."""
+    response = client.get("/compose")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Agent Suite" in response.text
+
+
+def test_message_detail_page():
+    """GET /inbox/{id} returns the SPA HTML page."""
+    response = client.get("/inbox/00000000-0000-0000-0000-000000000000")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_static_css():
+    """Static CSS file is served correctly."""
+    response = client.get("/static/style.css")
+    assert response.status_code == 200
+    assert "text/css" in response.headers["content-type"]
+
+
+def test_static_js():
+    """Static JS file is served correctly."""
+    response = client.get("/static/app.js")
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+
+
+def test_inbox_page_contains_key_elements():
+    """Verify the HTML page includes essential UI elements."""
+    response = client.get("/inbox")
+    html = response.text
+    # Navigation links
+    assert 'href="/inbox"' in html
+    assert 'href="/compose"' in html
+    # Settings modal
+    assert 'id="modal-overlay"' in html
+    assert 'id="api-key-input"' in html
+    # App container
+    assert 'id="app"' in html
+    # Static asset references
+    assert "/static/style.css" in html
+    assert "/static/app.js" in html

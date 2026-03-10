@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Suite - Inbox</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/inbox" class="brand" data-link>&#128231; Agent Suite</a>
+            <div class="nav-links">
+                <a href="/inbox" data-link class="nav-link">Inbox</a>
+                <a href="/compose" data-link class="nav-link">Compose</a>
+                <button id="settings-btn" class="btn btn-icon" title="API Key Settings">&#9881;</button>
+            </div>
+        </nav>
+    </header>
+
+    <main id="app"></main>
+
+    <!-- Settings Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>API Key Settings</h2>
+                <button class="btn btn-icon modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="hint">Enter your API key to access your inbox. Create one via <code>POST /v1/inboxes</code>.</p>
+                <label for="api-key-input">API Key</label>
+                <input type="password" id="api-key-input" placeholder="as_..." autocomplete="off">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="show-key"> Show key
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button id="save-key-btn" class="btn btn-primary">Save</button>
+                <button class="btn btn-secondary modal-close">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

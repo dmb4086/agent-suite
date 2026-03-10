@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
 import boto3
@@ -14,6 +18,12 @@ from app.schemas import schemas
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Agent Suite", version="0.1.0")
+
+# Static files directory
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# Mount static assets (CSS, JS)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 security = HTTPBearer()
 settings = get_settings()
 
@@ -33,6 +43,35 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)
             detail="Invalid API key"
         )
     return inbox
+
+
+# ─── Web UI Routes ────────────────────────────────────────
+
+
+def _serve_ui():
+    """Serve the single-page application HTML."""
+    return FileResponse(str(STATIC_DIR / "index.html"), media_type="text/html")
+
+
+@app.get("/inbox", include_in_schema=False)
+def inbox_page():
+    """Inbox page - lists all received messages."""
+    return _serve_ui()
+
+
+@app.get("/inbox/{message_id}", include_in_schema=False)
+def message_page(message_id: str):
+    """Message detail page."""
+    return _serve_ui()
+
+
+@app.get("/compose", include_in_schema=False)
+def compose_page():
+    """Compose page - send a new email."""
+    return _serve_ui()
+
+
+# ─── API Routes ───────────────────────────────────────────
 
 
 @app.get("/health")
