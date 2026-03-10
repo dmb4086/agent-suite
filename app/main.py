@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
@@ -13,9 +13,27 @@ from app.schemas import schemas
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+import os
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(title="Agent Suite", version="0.1.0")
 security = HTTPBearer()
 settings = get_settings()
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+os.makedirs(STATIC_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/inbox")
+def get_inbox_page():
+    return FileResponse(os.path.join(STATIC_DIR, "inbox.html"))
+
+@app.get("/compose")
+def get_compose_page():
+    return FileResponse(os.path.join(STATIC_DIR, "compose.html"))
 
 
 def get_inbox_by_api_key(api_key: str, db: Session):
@@ -143,12 +161,12 @@ def list_messages(
 
 @app.post("/v1/webhooks/mailgun")
 def mailgun_webhook(
-    sender: str,
-    recipient: str,
-    subject: str = "",
-    body_plain: str = "",
-    body_html: str = "",
-    message_id: str = "",
+    sender: str = Form(...),
+    recipient: str = Form(...),
+    subject: str = Form(""),
+    body_plain: str = Form(""),
+    body_html: str = Form(""),
+    message_id: str = Form(""),
     db: Session = Depends(get_db)
 ):
     """Receive incoming email from Mailgun."""
