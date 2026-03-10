@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     ses_from_email: str = ""
     
+    # S3 for attachments (Bounty #2)
+    s3_attachments_bucket: str = ""
+    
     # App
     app_name: str = "Agent Suite"
     debug: bool = False

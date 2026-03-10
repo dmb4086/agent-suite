@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Boolean
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Boolean, Float, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base
 
@@ -31,5 +31,26 @@ class Message(Base):
     body_html = Column(Text)
     received_at = Column(DateTime, default=datetime.utcnow)
     is_read = Column(Boolean, default=False)
-    message_id = Column(String(255), index=True)  # External message ID
-    raw_data = Column(Text)  # Store raw email for debugging
+    message_id = Column(String(255), index=True)
+    raw_data = Column(Text)
+    
+    # Verification fields (Bounty #2)
+    spf_pass = Column(Boolean, default=None)
+    dkim_pass = Column(Boolean, default=None)
+    spam_score = Column(Float, default=0.0)
+    is_spam = Column(Boolean, default=False)
+    spam_indicators = Column(JSON, default=list)
+
+
+class Attachment(Base):
+    """Email attachment metadata (Bounty #2)"""
+    __tablename__ = "attachments"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=False, index=True)
+    filename = Column(String(500), nullable=False)
+    content_type = Column(String(255))
+    size_bytes = Column(Integer)
+    sha256 = Column(String(64), index=True)
+    s3_key = Column(String(500))
+    created_at = Column(DateTime, default=datetime.utcnow)
