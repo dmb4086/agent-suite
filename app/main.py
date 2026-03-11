@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
 import boto3
@@ -9,6 +10,7 @@ from app.core.config import get_settings
 from app.db.database import get_db, engine, Base
 from app.models import models
 from app.schemas import schemas
+import os
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -16,6 +18,21 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Agent Suite", version="0.1.0")
 security = HTTPBearer()
 settings = get_settings()
+
+# Mount static files for Web UI
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Serve index.html at root
+@app.get("/")
+def serve_index():
+    """Serve the Web UI."""
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(index_path):
+        from fastapi.responses import FileResponse
+        return FileResponse(index_path)
+    return {"message": "Agent Suite API", "docs": "/docs"}
 
 
 def get_inbox_by_api_key(api_key: str, db: Session):
