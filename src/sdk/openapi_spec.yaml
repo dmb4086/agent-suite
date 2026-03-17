@@ -1,0 +1,24 @@
+openapi: 3.0.1
+info:
+  title: AgentWork API
+  description: API for managing email, calendar, and docs for AI agents
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/v1
+paths:
+  /inbox:
+    post:
+      summary: Create a new inbox
+      operationId: createInbox
+      responses:
+        '200':
+          description: Inbox created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inboxId:
+                    type: string
+                  message:
+                    type: string
