@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
@@ -14,8 +16,19 @@ from app.schemas import schemas
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Agent Suite", version="0.1.0")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 security = HTTPBearer()
 settings = get_settings()
+
+
+@app.get("/inbox", include_in_schema=False)
+def inbox_page():
+    return FileResponse("app/static/index.html")
+
+
+@app.get("/compose", include_in_schema=False)
+def compose_page():
+    return FileResponse("app/static/index.html")
 
 
 def get_inbox_by_api_key(api_key: str, db: Session):
