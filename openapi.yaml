@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: AgentWork Infrastructure API
+  version: 0.1.0
+  description: |
+    Email infrastructure APIs for AI agents. Agents can create inboxes,
+    send email, list received messages, and receive inbound Mailgun webhooks.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+security: []
+tags:
+  - name: Health
+  - name: Inboxes
+  - name: Messages
+  - name: Webhooks
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: agent-suite
+  /v1/inboxes:
+    post:
+      tags: [Inboxes]
+      summary: Create inbox
+      operationId: createInbox
+      description: Create a new agent inbox and return its generated email address and API key.
+      responses:
+        '201':
+          description: Created inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxResponse'
+  /v1/inboxes/me:
+    get:
+      tags: [Inboxes]
+      summary: Get current inbox
+      operationId: getCurrentInbox
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current inbox details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxPublic'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/inboxes/me/send:
+    post:
+      tags: [Messages]
+      summary: Send email
+      operationId: sendEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '200':
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: AWS SES is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/inboxes/me/messages:
+    get:
+      tags: [Messages]
+      summary: List messages
+      operationId: listMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 50
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Messages for current inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/webhooks/mailgun:
+    post:
+      tags: [Webhooks]
+      summary: Receive Mailgun inbound email webhook
+      operationId: receiveMailgunWebhook
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MailgunWebhookPayload'
+      responses:
+        '200':
+          description: Webhook processing result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+  responses:
+    Unauthorized:
+      description: Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    InboxResponse:
+      type: object
+      required: [id, email_address, api_key, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email_address:
+          type: string
+          format: email
+        api_key:
+          type: string
+          description: Bearer token used for authenticated inbox operations.
+        created_at:
+          type: string
+          format: date-time
+    InboxPublic:
+      type: object
+      required: [id, email_address, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email_address:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+    MessageCreate:
+      type: object
+      required: [to, subject, body]
+      properties:
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+        body:
+          type: string
+        html_body:
+          type: string
+          nullable: true
+    SendEmailResponse:
+      type: object
+      required: [status, message_id, to]
+      properties:
+        status:
+          type: string
+          example: sent
+        message_id:
+          type: string
+        to:
+          type: string
+          format: email
+    MessageResponse:
+      type: object
+      required: [id, sender, recipient, received_at, is_read]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender:
+          type: string
+        recipient:
+          type: string
+        subject:
+          type: string
+          nullable: true
+        body_text:
+          type: string
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+        is_read:
+          type: boolean
+    MessageList:
+      type: object
+      required: [total, messages]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageResponse'
+    MailgunWebhookPayload:
+      type: object
+      required: [sender, recipient]
+      properties:
+        sender:
+          type: string
+        recipient:
+          type: string
+        subject:
+          type: string
+          default: ''
+        body_plain:
+          type: string
+          default: ''
+        body_html:
+          type: string
+          default: ''
+        message_id:
+          type: string
+          default: ''
+    WebhookResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [received, dropped]
+        message_id:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
